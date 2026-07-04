@@ -1,6 +1,6 @@
 # Akatsuki 🥷 — Gift Card Vendor Integration Agent
 
-A Claude Code custom slash command that guides you through onboarding a new digital gift card / voucher vendor into the Xoxoday platform end-to-end.
+A Claude Code custom slash command that guides you through integrating a new digital gift card / voucher vendor into the Xoxoday platform end-to-end.
 
 ## What it does
 
