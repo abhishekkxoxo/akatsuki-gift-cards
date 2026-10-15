@@ -20,6 +20,7 @@ Before any feasibility verdict it asks for **staging credentials** and runs **ev
 | `src/configs/baseConfigs.json.sample` (`vendorClassIdMapping` line) | vendor-integrations | Yes |
 | `tests/vendors/{vendorName}.*.test.ts` + fixtures | vendor-integrations | Yes |
 | `src/configs/vendorConfigs/{VendorName}.json` (staging values) + local `baseConfigs.json` mapping | vendor-integrations | No: gitignored, stays local |
+| `config.php.sample`, `vendor_tables.php`, `sale/{key}_voucher` listing page (controller, model, language, tpl), `header.tpl`, `product_automation.tpl`; for fixedSku also the product controller/model and both product form templates; `order_list.tpl` if there is a balance | karma | Yes |
 | `vendorBalance/vendors/{vendorName}Balance.js`, `vendorBalance.js`, `conf.json.sample` | karma_reports | Yes, only if the vendor has a balance endpoint |
 
 It never hand-edits `config.json`, which `npm run merge-configs` regenerates (`npm run dev` and `prestart` run it too).
@@ -31,7 +32,7 @@ The handoff gives a per-repo, per-env checklist:
 - OPMS `vendorIntegration.integratedVendors` (string ids);
 - the `realtimeVendorModels` lists in product-listing and plum_client_order;
 - `vendor` / `vendor_to_model` rows and the products table DDL;
-- karma admin files (config constant, schema map, listing page, menu, permissions, balance row);
+- the real `karma/config.php` define in every env before deploy, and the User Group permission;
 - the sync order and a smoke test.
 
 ## Installation
