@@ -1,48 +1,50 @@
 # Akatsuki 🥷 — Gift Card Vendor Integration Agent
 
-A Claude Code custom slash command that guides you through integrating a new digital gift card / voucher vendor into the Xoxoday platform end-to-end.
+A Claude Code slash command for digital gift card / voucher vendors on the Xoxoday platform. It has three modes:
 
-## What it does
+| Mode | Use it to |
+|---|---|
+| **Onboard** | Integrate a new gift card vendor: repo preflight → question batches → feasibility → branch check → code → tests → handoff |
+| **Debug** | Walk an order through nine hops (OPMS → VI validation → product/SKU → auth → vendor call → storage → recon → sync → balance) and stop at the failing one (read-only) |
+| **Test** | Vendor API contract tests with the Postman CLI first, then Jest unit tests of our connector |
 
-- Accepts API docs (Postman collection, OpenAPI JSON, or raw text) and pre-fills answers, or walks you through Q&A if you have nothing to paste.
-- Asks structured batches of questions — vendor identity, auth, order placement, reconciliation, product catalog, balance reporting.
-- Runs a feasibility check and waits for your approval before writing anything.
-- Confirms your Jira branch before touching any file.
-- Writes all required files automatically:
+## What it writes
 
-| File | Action |
-|------|--------|
-| `vendor-integrations/src/vendors/integratedVendors/{VendorName}.ts` | Created |
-| `vendor-integrations/src/vendors/vendorTemplates/{vendorName}.ts` | Created (if complex types needed) |
-| `vendor-integrations/src/configs/config.json` | Updated (`vendorConfigs` entry + `vendorClassIdMapping`) |
-| `karma_reports/vendorBalance/vendors/{vendorName}Balance.js` | Created (only if vendor has a balance endpoint) |
-| `karma_reports/vendorBalance/vendorBalance.js` | Updated (only if vendor has a balance endpoint) |
-| `karma_reports/conf.json.sample` | Updated (only if vendor has a balance endpoint) |
+| File | Where | In the PR? |
+|---|---|---|
+| `src/vendors/integratedVendors/{vendorFile}.ts` | vendor-integrations | Yes |
+| `src/vendors/vendorTemplates/{vendorName}.ts` (if needed) | vendor-integrations | Yes |
+| `src/configs/baseConfigs.json.sample` (`vendorClassIdMapping` line) | vendor-integrations | Yes |
+| `tests/vendors/{vendorName}.*.test.ts` + fixtures | vendor-integrations | Yes |
+| `src/configs/vendorConfigs/{VendorName}.json` + local `baseConfigs.json` mapping | vendor-integrations | No: gitignored, delivered per env via devx |
+| `vendorBalance/vendors/{vendorName}Balance.js`, `vendorBalance.js`, `conf.json.sample` | karma_reports | Yes, only if the vendor has a balance endpoint |
 
-## What you still do manually after it finishes
+It never hand-edits `config.json`, which `npm run merge-configs` regenerates (`npm run dev` and `prestart` run it too).
 
-- Fill real credentials in `config.json` (replace placeholders)
-- Add `vendorId` to `order-process-ms/config_voucher_process.json` → `integratedVendors` array
-- Run `cd vendor-integrations && npm run merge-configs && npx tsc`
-- Add vendor product pages, balance display row, and menu links in the `karma/` PHP admin panel
-- Test order placement, reconciliation, and product sync before going live
+## What still needs doing outside this command
+
+The handoff gives a per-repo, per-env checklist:
+- VI deployment config and token scheduler;
+- OPMS `vendorIntegration.integratedVendors` (string ids);
+- the `realtimeVendorModels` lists in product-listing and plum_client_order;
+- `vendor` / `vendor_to_model` rows and the products table DDL;
+- karma admin files (config constant, schema map, listing page, menu, permissions, balance row);
+- the sync order and a smoke test.
 
 ## Installation
-
-Copy `akatsuki-giftcards.md` into your project's `.claude/commands/` directory:
 
 ```bash
 cp akatsuki-giftcards.md /path/to/your/project/.claude/commands/
 ```
 
-Then use it in Claude Code:
+Then in Claude Code:
 
 ```
 /akatsuki-giftcards
 ```
 
-Drop your vendor's API docs when prompted, or type `start` to begin Q&A.
+Drop your vendor's API docs, say `start`, or say `debug {vendorId} {orderId|VID|symptom}` or `test`.
 
 ## Scope
 
-This agent handles **digital voucher codes only** — a code (and sometimes a PIN) with a validity/expiry, at fixed denominations or variable open amounts. It does **not** handle physical merchandise, shipping, couriers, or delivery tracking. For merchandise vendors, see [merch-sensei](https://github.com/abhishekkxoxo/merch-sensei).
+Digital voucher codes only: a code (and sometimes a PIN) with a validity, at fixed or variable denominations. For merchandise vendors, see [merch-sensei](https://github.com/abhishekkxoxo/merch-sensei). For mobile topup / recharge vendors, see [topup-sensei](https://github.com/abhishekkxoxo/topup-sensei).
