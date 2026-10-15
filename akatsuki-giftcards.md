@@ -169,6 +169,19 @@ Or just say "start" and I'll ask you everything.
 6. Quirks (code format, redemption URL vs raw code, vendor-side encryption of codes, staging oddities)?
 ```
 
+### PHASE 1.5 — Live API check on staging (before any feasibility verdict)
+
+```
+Before I call this feasible I'll run every vendor API on staging.
+Please share the staging credentials and test data (test products/denominations, sandbox balance).
+```
+- Keep the credentials out of chat replies, code, tracked files, commits and logs. Put them only in a Postman environment file in the scratchpad (outside every repo) and, in Phase 3, in the local gitignored vendor config.
+- Build a Postman collection from the docs and run it: `postman collection run <collection.json> -e <env.json> [-d <data.json>]`. Cover **every endpoint the integration will call**: auth/token, catalog (all pages), place order (smallest denomination), two-step confirm, refetch/status, plus error cases (bad credentials, invalid input, duplicate reference) and the **balance endpoint if one exists**. Staging only — never production.
+- Save the redacted responses as fixtures (TEST step 2 uses them).
+- Show a results table: endpoint · HTTP status · pass/fail · what the response revealed (field names, status values, quirks). Correct any Phase 1 answer the live responses contradict.
+
+**Verdict rule:** a feasibility line is ✅ only if its API passed live on staging. Not run or blocked → ⚠️ "not verified: <reason>". Failed → ❌. Say **"100% feasible"** only when every line is ✅ from the live run; otherwise list exactly what is unverified and why.
+
 ### PHASE 2 — Feasibility check
 
 ```
@@ -188,6 +201,7 @@ PR FILES        integratedVendors/{file}.ts · vendorTemplates/{name}.ts? · bas
 LOCAL CONFIG    vendorConfigs/{VendorName}.json · local baseConfigs.json mapping (gitignored, devx per env)
 BALANCE FILES   {karma_reports fetcher + registration + conf.json.sample block}
 HANDOFF ONLY    OPMS, product-listing, plum_client_order, karma, DB rows/DDL
+LIVE STAGING RUN  {n}/{n} requests · {x}/{y} assertions passed · unverified: {list or none}
 COMPLEXITY  Low / Medium / High        RISKS  {list}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Shall I proceed? (yes / no / clarify X)
@@ -244,7 +258,7 @@ Re-read on the current branch: `vendorBaseClass.ts`, `interfaces/vendorBase.ts`,
       "maxApiAtaTime": 5,
       "maxCardsPerRequest": 1,
       "pickConfigCustomerInfo": false,
-      "credentials": { "FILL_FROM_SECURE_CONFIG": "FILL_FROM_SECURE_CONFIG" }
+      "credentials": { "{staging_key_name}": "{staging value from the user}" }
     }
   }
 }
@@ -255,7 +269,9 @@ Rules:
 - No `headers` blocks — the base never reads them; headers come from `getReqHeaders`. Key names in `accessTokenConfigs`/`productListingConfigs` must match what your class reads (`url` is the convention).
 - Keep `refetchOrderReqConfigs` whenever refetch exists. Include `accessTokenConfigs` only for token vendors, `productListingConfigs` only with a listing API.
 - Optional flags: `vendorData.multiVendorSupport`, `vendorData.syncProductName`, `configs.useBatchImport`, `configs.useCustomExternalOrderId` (then implement `generateNewExternalOrderId` + `getVendorOrderId`).
-- Credentials: placeholder keys matching what the class reads (nested per account/currency for token vendors).
+- Credentials: keys matching what the class reads (nested per account/currency for token vendors).
+
+**Config values:** write the **staging** base URL and the **staging credentials** the user shared into `src/configs/vendorConfigs/{VendorName}.json` in the repo working tree. The folder is gitignored, so the file stays local and is never committed — tell the user to swap in production values per env (devx). Everywhere tracked (`*.sample`, code, tests, fixtures) use placeholders only. Confirm with `git status` that the config file is not staged.
 
 **File 4 — registration**
 - `"{ClassName}": "{vendorId}"` (or an array of string ids) in `vendorClassIdMapping` of the local `src/configs/baseConfigs.json` **and** the tracked `baseConfigs.json.sample` (one-line surgical edit, as STO-55042 did for `MobikwikTopup`).
@@ -325,7 +341,7 @@ CONTRACT: 4 interface methods + getReqHeaders public ✅ · errorHandler rethrow
 {BALANCE KEY: {key} — karma order_list.tpl must use the identical id}
 
 NEXT STEPS (per env)
-VI (devx)        vendorConfigs block with real credentials + prod baseUrl; baseConfigs vendorClassIdMapping.
+VI (devx)        vendorConfigs block: replace the staging credentials + baseUrl with production; baseConfigs vendorClassIdMapping.
                  Token vendors: POST /vendor/updateAccessToken body {"vendorId": {vendorId}} once, plus a scheduler.
 OPMS (devx)      src/configs/config_voucher_process.json → vendorIntegration.integratedVendors += "{vendorId}" (STRING);
                  OPMS hashKey/hashSalt == VI voucherProcure key/salt.
@@ -355,6 +371,8 @@ Smoke test       procure (hash header) → voucher_insert_details + egift_vouche
 Always two steps, in order: prove the vendor behaves as documented, then prove our code handles what it actually returns.
 
 ### Step 1 — Vendor API contract tests (Postman CLI)
+
+In ONBOARD this collection already ran in Phase 1.5 — re-run it after the code is written and add any endpoint the code ended up calling.
 
 `postman collection run <collection.json> -e <env.json> [-d data.json]` — secrets only in the environment file, never committed. Cover:
 
@@ -508,7 +526,8 @@ FIX:       <exact file + change>, or "escalate: base-class change required"
 2. Config: local `vendorConfigs/{VendorName}.json` + `vendorClassIdMapping` in `baseConfigs.json` (local) and `baseConfigs.json.sample` (tracked), then `npm run merge-configs`. Never hand-edit `config.json`. Never commit gitignored config.
 3. Feasibility approval before code — even if the user says "just build it". Branch confirmation before code. One batch at a time.
 4. No partial implementations: interface methods are complete; optional methods are complete or omitted.
-5. Credentials never hardcoded: `"FILL_FROM_SECURE_CONFIG"` placeholders, read via `this.config.configs.credentials[...]`. Never copy values from `*.sample` files.
+5. Credentials never in code, tracked files, commits or chat: staging values only in the local gitignored vendor config and the scratchpad Postman environment; placeholders in `*.sample`; read via `this.config.configs.credentials[...]`. Never copy values from `*.sample` files.
+12. Never say "100% feasible" without a passing live staging run of every endpoint.
 6. `errorHandler` rethrows `HTTPClientError`; vendor errors map to existing OPM ids (append to `errors.ts` only with approval).
 7. Catalog sync never returns a partial list — throw on any page failure.
 8. `code` string, validity `YYYY-MM-DD` or `""`, `addedBy` stable, never encrypt codes yourself, never log PINs.

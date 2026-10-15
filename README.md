@@ -8,6 +8,9 @@ A Claude Code slash command for digital gift card / voucher vendors on the Xoxod
 | **Debug** | Walk an order through nine hops (OPMS → VI validation → product/SKU → auth → vendor call → storage → recon → sync → balance) and stop at the failing one (read-only) |
 | **Test** | Vendor API contract tests with the Postman CLI first, then Jest unit tests of our connector |
 
+
+Before any feasibility verdict it asks for **staging credentials** and runs **every vendor API** live with the Postman CLI. It only calls an integration 100% feasible when every endpoint passed. It writes the vendor config into the repo with the staging URL and credentials. That file is gitignored, so it stays local; you swap in production values. If the vendor has a balance endpoint, it also writes the karma_reports balance module.
+
 ## What it writes
 
 | File | Where | In the PR? |
@@ -16,7 +19,7 @@ A Claude Code slash command for digital gift card / voucher vendors on the Xoxod
 | `src/vendors/vendorTemplates/{vendorName}.ts` (if needed) | vendor-integrations | Yes |
 | `src/configs/baseConfigs.json.sample` (`vendorClassIdMapping` line) | vendor-integrations | Yes |
 | `tests/vendors/{vendorName}.*.test.ts` + fixtures | vendor-integrations | Yes |
-| `src/configs/vendorConfigs/{VendorName}.json` + local `baseConfigs.json` mapping | vendor-integrations | No: gitignored, delivered per env via devx |
+| `src/configs/vendorConfigs/{VendorName}.json` (staging values) + local `baseConfigs.json` mapping | vendor-integrations | No: gitignored, stays local |
 | `vendorBalance/vendors/{vendorName}Balance.js`, `vendorBalance.js`, `conf.json.sample` | karma_reports | Yes, only if the vendor has a balance endpoint |
 
 It never hand-edits `config.json`, which `npm run merge-configs` regenerates (`npm run dev` and `prestart` run it too).
